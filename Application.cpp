@@ -7,65 +7,55 @@
 using namespace std;
 using namespace std::chrono;
 
-void drawCircle(double radius, float red, float green, float blue);
-void drawTriangle(float red, float green, float blue, float startLength, float endLength, float halfWidth, float rotationAngle);
-void drawClockFace();
-void drawbox(float coordinates[8], float red, float green, float blue);
-void drawRotatedbox(float red, float green, float blue, float startLength, float endLength, float halfWidth, float rotationAngle);
-void drawSecondHand(float rotationAngle);
-void drawMinuteHand(float rotationAngle);
-void drawHourHand(float rotationAngle);
+const float DEG_TO_RAD = 3.14159 / 180;
 
-int main(void)
-{
+void drawCircle(float radius, float red, float green, float blue);
+void drawBox(float coordinates[8], float red, float green, float blue);
+void drawBoxWithAngle(float startL, float endL, float halfW, float rotAngle, float red, float green, float blue);
+void drawClock();
+void drawClockMarks(int count, float startL, float endL, float halfW, float red, float green, float blue);
+void drawHand(float L, float W, float rotAngle, float red, float green, float blue);
+
+int main() {
     GLFWwindow* window;
 
-    // Initialize the library
+    // Initialize GLFW
     if (!glfwInit()) return -1;
 
-    // Create a windowed mode window and its OpenGL context
+    // Create a window
     window = glfwCreateWindow(700, 700, "Animated Clock - CSC 2411", NULL, NULL);
-    if (!window)
-    {
+    if (!window) {
         glfwTerminate();
         return -1;
     }
 
-    // Make the window's context current
     glfwMakeContextCurrent(window);
 
-    while (!glfwWindowShouldClose(window))
-    {
-        // Set background color
+    while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(0.1f, 0.2f, 0.4f, 1.0f);
 
-        // Get current time
+        // Get the current time
         auto currentTime = system_clock::now();
         time_t currentTimeC = system_clock::to_time_t(currentTime);
         tm localTime;
         localtime_s(&localTime, &currentTimeC);
 
-        int hours = localTime.tm_hour;
+        int hours = localTime.tm_hour % 12;
         int minutes = localTime.tm_min;
         int seconds = localTime.tm_sec;
 
-        // Calculate angles for clock hands
         float secondHandAngle = 90 - (seconds * 6);
         float minuteHandAngle = 90 - (minutes * 6 + seconds * 0.1);
-        float hourHandAngle = 90 - ((hours % 12) * 30 + minutes * 0.5);
+        float hourHandAngle = 90 - (hours * 30 + minutes * 0.5);
 
-        // Draw clock face and hands
-        drawClockFace();
-        drawHourHand(hourHandAngle);
-        drawMinuteHand(minuteHandAngle);
-        drawSecondHand(secondHandAngle);
+        drawClock();
+        drawHand(0.75, 0.01, secondHandAngle, 0.8, 0.1, 0.1); //Second hand
+        drawHand(0.68, 0.02, minuteHandAngle, 0.0, 0.5, 0.5);  //Minute hand
+        drawHand(0.55, 0.03, hourHandAngle, 0.8, 0.6, 0.2);  //Hour hand
 
-        // Swap buffers and poll events
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        // Sleep for a short duration to limit the frame rate
         Sleep(16);
     }
 
@@ -73,107 +63,51 @@ int main(void)
     return 0;
 }
 
-void drawClockFace()
-{
-    // Outer circle
-    drawCircle(1, 0.2, 0.2, 0.2);
-    drawCircle(0.95, 0.9, 0.9, 0.9);
+void drawClock() {
+    drawCircle(1, 0.2, 0.2, 0.2);  // Outer circle
+    drawCircle(0.95, 0.9, 0.9, 0.9);  // Inner circle
+    drawClockMarks(12, 0.8, 0.95, 0.02, 0.2, 0.3, 0.8);  // Hour marks
+    drawClockMarks(60, 0.85, 0.95, 0.01, 0.2, 0.3, 0.8);  // Minute marks
+}
 
-    // Hour indicators
-    for (int i = 0; i < 12; i++) {
-        drawRotatedbox(0.2, 0.3, 0.8, 0.8, 0.95, 0.02, 30 * i);
-    }
-
-    // Minute indicators
-    for (int i = 0; i < 60; i++) {
-        drawRotatedbox(0.2, 0.3, 0.8, 0.85, 0.95, 0.01, 6 * i);
+void drawClockMarks(int count, float startL, float endL, float halfW, float red, float green, float blue) {
+    for (int i = 0; i < count; ++i) {
+        float angle = i * (360.0f / count);
+        drawBoxWithAngle(startL, endL, halfW, angle, red, green, blue);
     }
 }
 
-void drawCircle(double radius, float red, float green, float blue)
-{
+void drawCircle(float radius, float red, float green, float blue) {
     glBegin(GL_POLYGON);
     glColor3f(red, green, blue);
-    double originX = 0.0;
-    double originY = 0.0;
-    for (int i = 0; i <= 300; i++) {
-        double angle = 2 * 3.14 * i / 300;
-        double x = cos(angle) * radius;
-        double y = sin(angle) * radius;
-        glVertex2d(originX + x, originY + y);
+    for (int i = 0; i <= 300; ++i) {
+        float angle = 2 * 3.14159 * i / 300;
+        glVertex2f(cos(angle) * radius, sin(angle) * radius);
     }
     glEnd();
 }
 
-void drawbox(float coordinates[8], float red, float green, float blue)
-{
+void drawBox(float coordinates[8], float red, float green, float blue) {
     glBegin(GL_QUADS);
     glColor3f(red, green, blue);
-    glVertex2f(coordinates[0], coordinates[1]);
-    glVertex2f(coordinates[2], coordinates[3]);
-    glVertex2f(coordinates[4], coordinates[5]);
-    glVertex2f(coordinates[6], coordinates[7]);
+    for (int i = 0; i < 8; i += 2) {
+        glVertex2f(coordinates[i], coordinates[i + 1]);
+    }
     glEnd();
 }
 
-void drawRotatedbox(float red, float green, float blue, float startLength, float endLength, float halfWidth, float rotationAngle)
-{
-    rotationAngle = rotationAngle * 3.14 / 180;
-    float box[8];
-    float diagonalStart = sqrt(startLength * startLength + halfWidth * halfWidth);
-    float angleStart = atan(halfWidth / startLength);
-    float angleEnd = atan(halfWidth / endLength);
-    float diagonalEnd = sqrt(endLength * endLength + halfWidth * halfWidth);
+void drawBoxWithAngle(float startL, float endL, float halfW, float rotAngle, float red, float green, float blue) {
+    float angle = rotAngle * DEG_TO_RAD;
+    float coordinates[8] = {
+        startL * cos(angle) - halfW * sin(angle), startL * sin(angle) + halfW * cos(angle), // Bottom-left
+        endL * cos(angle) - halfW * sin(angle),   endL * sin(angle) + halfW * cos(angle),   // Bottom-right
+        endL * cos(angle) + halfW * sin(angle),   endL * sin(angle) - halfW * cos(angle),   // Top-right
+        startL * cos(angle) + halfW * sin(angle), startL * sin(angle) - halfW * cos(angle)  // Top-left
+    };
 
-    box[0] = diagonalStart * cos(rotationAngle - angleStart);
-    box[1] = diagonalStart * sin(rotationAngle - angleStart);
-    box[2] = diagonalEnd * cos(rotationAngle - angleEnd);
-    box[3] = diagonalEnd * sin(rotationAngle - angleEnd);
-    box[4] = diagonalEnd * cos(rotationAngle + angleEnd);
-    box[5] = diagonalEnd * sin(rotationAngle + angleEnd);
-    box[6] = diagonalStart * cos(rotationAngle + angleStart);
-    box[7] = diagonalStart * sin(rotationAngle + angleStart);
-
-    drawbox(box, red, green, blue);
+    drawBox(coordinates, red, green, blue);
 }
 
-void drawTriangle(float red, float green, float blue, float startLength, float endLength, float halfWidth, float rotationAngle)
-{
-    rotationAngle = rotationAngle * 3.14 / 180;
-    float diagonalStart = sqrt(startLength * startLength + halfWidth * halfWidth);
-    float angleOffset = atan(halfWidth / startLength);
-
-    float x1 = diagonalStart * cos(rotationAngle - angleOffset);
-    float y1 = diagonalStart * sin(rotationAngle - angleOffset);
-    float x2 = endLength * cos(rotationAngle);
-    float y2 = endLength * sin(rotationAngle);
-    float x3 = diagonalStart * cos(rotationAngle + angleOffset);
-    float y3 = diagonalStart * sin(rotationAngle + angleOffset);
-
-    glBegin(GL_TRIANGLES);
-    glColor3f(red, green, blue);
-    glVertex2f(x1, y1);
-    glVertex2f(x2, y2);
-    glVertex2f(x3, y3);
-    glEnd();
-}
-
-void drawSecondHand(float rotationAngle)
-{
-    drawRotatedbox(0.8, 0.1, 0.1, 0.0, 0.6, 0.01, rotationAngle);
-    drawRotatedbox(0.8, 0.1, 0.1, 0.0, 0.15, 0.01, rotationAngle + 180);
-    drawTriangle(1.0, 0.2, 0.2, 0.6, 0.69, 0.04, rotationAngle);
-    drawCircle(0.05, 0.8, 0.1, 0.1);
-}
-
-void drawMinuteHand(float rotationAngle)
-{
-    drawRotatedbox(0.0, 0.5, 0.5, 0.0, 0.55, 0.02, rotationAngle);
-    drawTriangle(0.0, 0.5, 0.5, 0.55, 0.6, 0.02, rotationAngle);
-}
-
-void drawHourHand(float rotationAngle)
-{
-    drawRotatedbox(0.8, 0.6, 0.2, 0.0, 0.4, 0.03, rotationAngle);
-    drawTriangle(0.8, 0.6, 0.2, 0.4, 0.45, 0.03, rotationAngle);
+void drawHand(float L, float W, float rotAngle, float red, float green, float blue) {
+    drawBoxWithAngle(0, L, W, rotAngle, red, green, blue);
 }
